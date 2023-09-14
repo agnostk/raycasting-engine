@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raycasting Engine</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    "
+  >
+    <canvas id="gameCanvas"></canvas>
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      const mapScale = 24;
+
+      [w, h] = [548, 600];
+
+      canvas.width = w;
+      canvas.height = h;
+
+      const map = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+        [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1],
+        [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 1],
+        [1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+        [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+        [1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1],
+        [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        [1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
+        [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+        [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+        [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+        [1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      ];
+
+      const player = {
+        x: 10,
+        y: 4,
+        speed: 0.05,
+        rotation: 0,
+        rotSpeed: (6 * Math.PI) / 180,
+      };
+
+      const keyState = {
+        keyUp: false,
+        keyDown: false,
+        keyLeft: false,
+        keyRight: false,
+      };
+
+      function clearCanvas() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      function drawMap() {
+        for (let i = 0; i < map.length; i++) {
+          for (let j = 0; j < map[i].length; j++) {
+            if (map[i][j] == 1) {
+              ctx.fillStyle = "#777";
+              ctx.fillRect(
+                j * mapScale,
+                i * mapScale,
+                mapScale * 0.95,
+                mapScale * 0.95
+              );
+            }
+          }
+        }
+      }
+
+      function drawPlayer() {
+        ctx.fillStyle = "#ff00ff";
+        ctx.save();
+        ctx.translate(player.x * mapScale, player.y * mapScale);
+        ctx.rotate(player.rotation);
+        ctx.translate(-(player.x * mapScale), -(player.y * mapScale));
+        drawDebugDirection();
+        ctx.fillRect(
+          player.x * mapScale - mapScale / 4,
+          player.y * mapScale - mapScale / 4,
+          mapScale / 2,
+          mapScale / 2
+        );
+        ctx.restore();
+      }
+
+      function drawDebugDirection() {
+        ctx.strokeStyle = "#00ffff";
+        ctx.beginPath();
+        ctx.moveTo(player.x * mapScale, player.y * mapScale);
+        ctx.lineTo(player.x * mapScale, player.y * mapScale - 25);
+        ctx.stroke();
+      }
+
+      function updatePlayer() {
+        let playerStep = 0;
+        playerStep -= keyState.keyUp && player.speed;
+        playerStep += keyState.keyDown && player.speed;
+        player.rotation -= keyState.keyLeft && player.rotSpeed;
+        player.rotation += keyState.keyRight && player.rotSpeed;
+        const deltaX = playerStep * Math.sin(-player.rotation);
+        const deltaY = playerStep * Math.cos(-player.rotation);
+        if (canMove(player.x + deltaX, player.y + deltaY)) {
+          player.x += deltaX;
+          player.y += deltaY;
+        }
+      }
+
+      function canMove(x, y) {
+        console.log(x, y);
+        if (y < 0 || y > map.length || x < 0 || x > map[0].length) {
+          return false;
+        }
+        return map[Math.floor(y)][Math.floor(x)] === 0;
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "KeyW") {
+          keyState.keyUp = true;
+        }
+        if (e.code === "KeyS") {
+          keyState.keyDown = true;
+        }
+        if (e.code === "KeyA") {
+          keyState.keyLeft = true;
+        }
+        if (e.code === "KeyD") {
+          keyState.keyRight = true;
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        if (e.code === "KeyW") {
+          keyState.keyUp = false;
+        }
+        if (e.code === "KeyS") {
+          keyState.keyDown = false;
+        }
+        if (e.code === "KeyA") {
+          keyState.keyLeft = false;
+        }
+        if (e.code === "KeyD") {
+          keyState.keyRight = false;
+        }
+      });
+
+      setInterval(() => {
+        clearCanvas();
+        drawMap();
+        updatePlayer();
+        drawPlayer();
+      }, 1000 / 30);
+    </script>
+  </body>
+</html>
