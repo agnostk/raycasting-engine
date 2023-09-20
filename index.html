@@ -147,19 +147,37 @@
       }
 
       function drawRays() {
-        ctx.strokeStyle = "#ffffff";
         for (
           let i = -camera.halfFov;
           i < camera.halfFov;
           i += camera.stepAngle
         ) {
-          ctx.beginPath();
-          ctx.moveTo(player.x * mapScale, player.y * mapScale);
-          ctx.lineTo(
-            player.x * mapScale + -Math.sin(-player.rotation + i) * 999,
-            player.y * mapScale + -Math.cos(-player.rotation + i) * 999
-          );
-          ctx.stroke();
+          let t = 0;
+          while (
+            canMove(
+              player.x + -Math.sin(-player.rotation + i) * t,
+              player.y + -Math.cos(-player.rotation + i) * t
+            ) &&
+            t < Math.max(map.length, map[0].length)
+          ) {
+            t++;
+          }
+          if (t < Math.max(map.length, map[0].length)) {
+            ctx.strokeStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.moveTo(player.x * mapScale, player.y * mapScale);
+            ctx.lineTo(
+              Math.floor(
+                player.x * mapScale +
+                  -Math.sin(-player.rotation + i) * mapScale * t
+              ),
+              Math.floor(
+                player.y * mapScale +
+                  -Math.cos(-player.rotation + i) * mapScale * t
+              )
+            );
+            ctx.stroke();
+          }
         }
       }
 
