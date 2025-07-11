@@ -22,8 +22,6 @@
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
 
-      const mapScale = 32;
-
       const map = [
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -52,192 +50,139 @@
         [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
       ];
 
-      [w, h] = [map.length * mapScale, map[0].length * mapScale];
+      const SCREEN_WIDTH = 800;
+      const SCREEN_HEIGHT = 600;
+      canvas.width = SCREEN_WIDTH;
+      canvas.height = SCREEN_HEIGHT;
 
-      canvas.width = w;
-      canvas.height = h;
+      const mapWidth = map[0].length;
+      const mapHeight = map.length;
 
       const player = {
-        x: 10,
-        y: 4,
-        speed: 0.05,
-        rotation: 0,
-        rotSpeed: (6 * Math.PI) / 180,
-      };
-
-      const camera = {
+        x: 10.5,
+        y: 4.5,
+        speed: 0.04,
+        rot: 0,
+        rotSpeed: 0.03,
         fov: Math.PI / 3,
-        get halfFov() {
-          return this.fov / 2;
-        },
-        get stepAngle() {
-          return this.fov / w;
-        },
       };
 
-      const keyState = {
-        keyUp: false,
-        keyDown: false,
-        keyLeft: false,
-        keyRight: false,
-      };
+      const keyState = {};
+      document.addEventListener("keydown", (e) => (keyState[e.key] = true));
+      document.addEventListener("keyup", (e) => (keyState[e.key] = false));
 
-      function clearCanvas() {
-        ctx.fillStyle = "#111";
-        ctx.fillRect(0, 0, w, h);
+      function castRay(angle) {
+        const sin = Math.sin(angle);
+        const cos = Math.cos(angle);
+
+        for (let i = 0; i < 8; i += 0.01) {
+          const x = player.x + cos * i;
+          const y = player.y + sin * i;
+          const tx = Math.floor(x);
+          const ty = Math.floor(y);
+
+          if (tx < 0 || tx >= mapWidth || ty < 0 || ty >= mapHeight) return i;
+
+          if (map[ty][tx] === 1) return i;
+        }
+
+        return 20;
       }
 
-      function drawMap() {
-        for (let i = 0; i < map.length; i++) {
-          for (let j = 0; j < map[i].length; j++) {
-            if (map[i][j] == 1) {
-              ctx.fillStyle = "#777";
-              ctx.fillRect(
-                j * mapScale,
-                i * mapScale,
-                mapScale * 0.95,
-                mapScale * 0.95
-              );
-            }
+      function renderCamera() {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+        for (let i = 0; i < SCREEN_WIDTH; i++) {
+          const rayAngle =
+            player.rot - player.fov / 2 + (i / SCREEN_WIDTH) * player.fov;
+
+          const dist = castRay(rayAngle);
+          const corrected = dist * Math.cos(rayAngle - player.rot);
+          const wallHeight =
+            Math.min(SCREEN_HEIGHT, SCREEN_HEIGHT / corrected) * 1.25;
+
+          const shade = 200 - Math.min(200, corrected * 40);
+          ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+          ctx.fillRect(i, (SCREEN_HEIGHT - wallHeight) / 2, 1, wallHeight);
+        }
+      }
+
+      function updatePlayerState() {
+        if (keyState["a"]) player.rot -= player.rotSpeed;
+        if (keyState["d"]) player.rot += player.rotSpeed;
+
+        const deltaX = Math.cos(player.rot) * player.speed;
+        const deltaY = Math.sin(player.rot) * player.speed;
+
+        if (keyState["w"]) {
+          const newX = player.x + deltaX;
+          const newY = player.y + deltaY;
+          if (canPlayerMove(newX, newY)) {
+            player.x = newX;
+            player.y = newY;
+          }
+        }
+
+        if (keyState["s"]) {
+          const newX = player.x - deltaX;
+          const newY = player.y - deltaY;
+          if (canPlayerMove(newX, newY)) {
+            player.x = newX;
+            player.y = newY;
           }
         }
       }
 
-      function drawPlayer() {
+      function canPlayerMove(x, y) {
+        const tx = Math.floor(x);
+        const ty = Math.floor(y);
+        return map[ty] && map[ty][tx] === 0;
+      }
+
+      function renderMinimap() {
+        const scale = 6;
+        ctx.save();
+        ctx.translate(10, 10);
+
+        for (let y = 0; y < mapHeight; y++) {
+          for (let x = 0; x < mapWidth; x++) {
+            ctx.fillStyle = map[y][x] === 1 ? "#777" : "#222";
+            ctx.fillRect(x * scale, y * scale, scale, scale);
+          }
+        }
+
         ctx.fillStyle = "#ff00ff";
         ctx.beginPath();
         ctx.arc(
-          player.x * mapScale,
-          player.y * mapScale,
-          mapScale / 4,
+          player.x * scale,
+          player.y * scale,
+          scale / 2.5,
           0,
           Math.PI * 2
         );
         ctx.fill();
-        drawRays();
-        drawCameraFOV();
-        drawDirectionVector();
-      }
 
-      function drawDirectionVector() {
         ctx.strokeStyle = "#00ffff";
         ctx.beginPath();
-        ctx.moveTo(player.x * mapScale, player.y * mapScale);
+        ctx.moveTo(player.x * scale, player.y * scale);
         ctx.lineTo(
-          (player.x - Math.sin(-player.rotation)) * mapScale,
-          (player.y - Math.cos(-player.rotation)) * mapScale
+          (player.x + Math.cos(player.rot)) * scale,
+          (player.y + Math.sin(player.rot)) * scale
         );
         ctx.stroke();
+
+        ctx.restore();
       }
 
-      function drawCameraFOV() {
-        ctx.strokeStyle = "#ffff00";
-        ctx.beginPath();
-        ctx.moveTo(player.x * mapScale, player.y * mapScale);
-        ctx.lineTo(
-          (player.x - Math.sin(-player.rotation + camera.halfFov)) * mapScale,
-          (player.y - Math.cos(-player.rotation + camera.halfFov)) * mapScale
-        );
-        ctx.lineTo(
-          (player.x - Math.sin(-player.rotation - camera.halfFov)) * mapScale,
-          (player.y - Math.cos(-player.rotation - camera.halfFov)) * mapScale
-        );
-        ctx.lineTo(player.x * mapScale, player.y * mapScale);
-        ctx.stroke();
+      function gameLoop() {
+        updatePlayerState();
+        renderCamera();
+        renderMinimap();
+        requestAnimationFrame(gameLoop);
       }
 
-      function drawRays() {
-        for (
-          let i = -camera.halfFov;
-          i < camera.halfFov;
-          i += camera.stepAngle
-        ) {
-          let t = 0;
-          while (
-            canMove(
-              player.x + -Math.sin(-player.rotation + i) * t,
-              player.y + -Math.cos(-player.rotation + i) * t
-            ) &&
-            t < Math.max(map.length, map[0].length)
-          ) {
-            t++;
-          }
-          if (t < Math.max(map.length, map[0].length)) {
-            ctx.strokeStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.moveTo(player.x * mapScale, player.y * mapScale);
-            ctx.lineTo(
-              Math.floor(
-                player.x * mapScale +
-                  -Math.sin(-player.rotation + i) * mapScale * t
-              ),
-              Math.floor(
-                player.y * mapScale +
-                  -Math.cos(-player.rotation + i) * mapScale * t
-              )
-            );
-            ctx.stroke();
-          }
-        }
-      }
-
-      function updatePlayer() {
-        let playerStep = 0;
-        playerStep -= keyState.keyUp && player.speed;
-        playerStep += keyState.keyDown && player.speed;
-        player.rotation -= keyState.keyLeft && player.rotSpeed;
-        player.rotation += keyState.keyRight && player.rotSpeed;
-        const deltaX = playerStep * Math.sin(-player.rotation);
-        const deltaY = playerStep * Math.cos(-player.rotation);
-        if (canMove(player.x + deltaX, player.y + deltaY)) {
-          player.x += deltaX;
-          player.y += deltaY;
-        }
-      }
-
-      function canMove(x, y) {
-        if (y < 0 || y > map.length || x < 0 || x > map[0].length) {
-          return false;
-        }
-        return map[Math.floor(y)][Math.floor(x)] === 0;
-      }
-
-      document.addEventListener("keydown", (e) => {
-        if (e.code === "KeyW") {
-          keyState.keyUp = true;
-        }
-        if (e.code === "KeyS") {
-          keyState.keyDown = true;
-        }
-        if (e.code === "KeyA") {
-          keyState.keyLeft = true;
-        }
-        if (e.code === "KeyD") {
-          keyState.keyRight = true;
-        }
-      });
-
-      document.addEventListener("keyup", (e) => {
-        if (e.code === "KeyW") {
-          keyState.keyUp = false;
-        }
-        if (e.code === "KeyS") {
-          keyState.keyDown = false;
-        }
-        if (e.code === "KeyA") {
-          keyState.keyLeft = false;
-        }
-        if (e.code === "KeyD") {
-          keyState.keyRight = false;
-        }
-      });
-
-      setInterval(() => {
-        clearCanvas();
-        drawMap();
-        updatePlayer();
-        drawPlayer();
-      }, 1000 / 30);
+      gameLoop();
     </script>
   </body>
 </html>
